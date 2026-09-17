@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENSER TEST — Sandbox by Dr.Jupetor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧪</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<style>
+  :root{
+    --bg:#fbfaf7; --card:#ffffff; --border:#eae6dd; --border-strong:#ddd6c8;
+    --text:#1f1b16; --text-dim:#8b8477; --text-faint:#c2bcae;
+    --orange:#ff7a1f; --orange-deep:#d95a05; --orange-tint:#fff1e4;
+    --green:#2ea043; --amber:#d98c00; --red:#d63c34; --red-tint:#fdeeed;
+    --font-sans:'IBM Plex Sans Thai', system-ui, sans-serif;
+    --font-mono:'JetBrains Mono', 'Courier New', monospace;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:var(--bg); color:var(--text); font-family:var(--font-sans); -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width:920px; margin:0 auto; padding:28px 20px 60px; }
+
+  header{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+  .brand{ display:flex; align-items:baseline; gap:10px; }
+  .brand h1{ margin:0; font-size:21px; font-weight:700; }
+  .ver{ font-family:var(--font-mono); font-size:11px; color:var(--orange-deep); background:var(--orange-tint);
+        border:1px solid #ffdcb8; padding:2px 8px; border-radius:5px; }
+  .subtitle{ margin:4px 0 0; font-family:var(--font-mono); font-size:11px; letter-spacing:0.5px;
+             color:var(--text-faint); text-transform:uppercase; }
+
+  .dot{ width:8px; height:8px; border-radius:50%; background:var(--text-faint); flex-shrink:0; display:inline-block; }
+  .dot.ok{ background:var(--green); }
+  .dot.warn{ background:var(--amber); }
+  .dot.crit{ background:var(--red); }
+  .dot.off{ background:var(--text-faint); }
+
+  /* status legend */
+  .status-row{ display:flex; gap:10px; flex-wrap:wrap; }
+  .status-pill{ display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:500;
+                border-radius:20px; padding:7px 14px 7px 12px; border:1px solid transparent; }
+  .status-pill b{ font-weight:700; font-family:var(--font-mono); font-size:13px; margin-left:1px; }
+  .status-pill.ok{ background:#eaf7ed; color:#1c7a37; border-color:#cdead4; }
+  .status-pill.warn{ background:#fdf3e0; color:#a86a00; border-color:#f5e0b3; }
+  .status-pill.crit{ background:var(--red-tint); color:var(--red); border-color:#f3c6c1; }
+  .status-pill.off{ background:#f2f0ec; color:var(--text-dim); border-color:var(--border); }
+  .status-pill .dot{ width:7px; height:7px; }
+  .status-pill.ok .dot{ background:#1c7a37; }
+  .status-pill.warn .dot{ background:#a86a00; }
+  .status-pill.crit .dot{ background:var(--red); }
+  .status-pill.off .dot{ background:var(--text-faint); }
+
+  /* tabs */
+  .tabs{ display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:20px; overflow-x:auto; }
+  .tab-btn{ font-family:var(--font-sans); font-size:13.5px; font-weight:500; color:var(--text-dim);
+            background:none; border:none; padding:10px 16px; cursor:pointer; white-space:nowrap;
+            border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .tab-btn.active{ color:var(--orange-deep); border-bottom-color:var(--orange); font-weight:600; }
+  .tab-btn:hover{ color:var(--text); }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:20px 22px; margin-bottom:16px; }
+  .card h2{ margin:0 0 14px; font-size:14px; font-weight:600; }
+  .card h3{ margin:18px 0 8px; font-size:12.5px; font-weight:600; color:var(--text-dim); }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+  .row label{ font-size:12.5px; color:var(--text-dim); min-width:90px; }
+  input[type=text], input[type=password], input[type=number], select, textarea{
+    font-family:var(--font-mono); font-size:13px; color:var(--text);
+    background:#fdfcfa; border:1px solid var(--border-strong); border-radius:7px;
+    padding:8px 10px; flex:1; min-width:120px;
+  }
+  textarea{ width:100%; min-height:90px; resize:vertical; }
+  select{ flex:none; }
+  button.btn{
+    font-family:var(--font-sans); font-weight:600; font-size:13px; color:#fff;
+    background:var(--orange); border:none; border-radius:7px; padding:9px 16px; cursor:pointer;
+  }
+  button.btn:hover{ background:var(--orange-deep); }
+  button.btn.secondary{ background:var(--card); color:var(--text-dim); border:1px solid var(--border-strong); }
+  button.btn.secondary:hover{ color:var(--text); border-color:var(--text-dim); }
+  button.btn:disabled{ opacity:0.5; cursor:not-allowed; }
+  button.btn.danger{ background:var(--red); }
+
+  pre.out{ background:#faf8f4; border:1px solid var(--border); border-radius:7px; padding:12px 14px;
+           font-family:var(--font-mono); font-size:12.5px; line-height:1.55; overflow:auto; max-height:340px;
+           white-space:pre-wrap; word-break:break-word; margin:0; }
+  .status-line{ font-family:var(--font-mono); font-size:12px; color:var(--text-dim); margin-bottom:8px; }
+  .status-line.ok{ color:var(--green); }
+  .status-line.err{ color:var(--red); }
+  .hint{ font-size:12px; color:var(--text-faint); margin-top:6px; line-height:1.5; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:640px){ .grid2{ grid-template-columns:1fr; } }
+
+  .msg-log{ background:#faf8f4; border:1px solid var(--border); border-radius:7px; padding:8px 10px;
+             font-family:var(--font-mono); font-size:12px; height:180px; overflow-y:auto; }
+  .msg-log .line{ padding:3px 0; border-bottom:1px dashed var(--border); }
+  .msg-log .line .t{ color:var(--text-faint); margin-right:6px; }
+
+  footer{ margin-top:20px; text-align:center; color:var(--text-faint); font-size:11.5px; font-family:var(--font-mono); }
+
+  /* room grid cards (หน้าแสดงผล) */
+  .room-card{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 17px;
+              position:relative; overflow:hidden; cursor:pointer; transition:border-color .15s; }
+  .room-card:hover{ border-color:var(--border-strong); }
+  .room-card.selected{ border-color:var(--orange); box-shadow:0 0 0 1px var(--orange); }
+  .room-card.crit{ border-color:#f3c6c1; }
+  .room-card.crit::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--red); }
+  .room-card.warn::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--amber); }
+  .room-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .room-id{ display:flex; align-items:center; gap:8px; font-size:19px; font-weight:700; }
+  .room-ago{ font-family:var(--font-mono); font-size:11px; color:var(--text-faint); }
+  .room-remove{ position:absolute; top:8px; right:10px; background:none; border:none; color:var(--text-faint);
+                font-size:15px; cursor:pointer; line-height:1; padding:2px; }
+  .room-remove:hover{ color:var(--red); }
+  .rstats{ display:flex; gap:18px; flex-wrap:wrap; margin-bottom:4px; }
+  .rstat-value{ font-size:20px; font-weight:700; line-height:1; }
+  .rstat-value .unit{ font-size:12px; font-weight:500; color:var(--text-dim); margin-left:1px; }
+  .rstat-label{ font-size:11px; color:var(--text-dim); margin-top:4px; }
+  .rstat-value.crit{ color:var(--red); }
+  .rstat-value.warn{ color:var(--amber); }
+  .rstat-value.na{ color:var(--text-faint); font-weight:400; }
+  .room-spark{ height:34px; margin:8px 0 2px; }
+  .room-bottom{ display:flex; justify-content:space-between; align-items:center; margin-top:10px;
+                padding-top:10px; border-top:1px solid var(--border); }
+  .room-signal{ font-size:11.5px; color:var(--text-dim); }
+  .room-signal.crit{ color:var(--red); }
+  .room-sensor{ font-family:var(--font-mono); font-size:11px; color:var(--text-faint); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="brand">
+        <h1>SENSER TEST</h1>
+        <span class="ver">Sandbox · by Dr.Jupetor</span>
+      </div>
+      <p class="subtitle">FIRESTORE / API / MQTT / CONVERTERS</p>
+    </div>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <button class="tab-btn active" data-tab="t-dash">หน้าแสดงผล</button>
+    <button class="tab-btn" data-tab="t-fs">Firestore</button>
+    <button class="tab-btn" data-tab="t-api">REST API</button>
+    <button class="tab-btn" data-tab="t-mqtt">MQTT</button>
+    <button class="tab-btn" data-tab="t-conv">JSON ↔ Firestore</button>
+    <button class="tab-btn" data-tab="t-modbus">Modbus / เวลา</button>
+  </div>
+
+  <!-- ============== TAB 0: Dashboard (หน้าแสดงผล) ============== -->
+  <div class="tab-panel active" id="t-dash">
+    <div class="card">
+      <div class="row" style="margin-bottom:12px;">
+        <label style="min-width:70px;">เพิ่มห้อง</label>
+        <input type="text" id="dashAddCompany" placeholder="PLANT" value="ABC" style="max-width:140px;">
+        <input type="text" id="dashAddRoom" placeholder="room id" style="max-width:100px;">
+        <button class="btn secondary" id="dashAddBtn">+ เพิ่ม</button>
+      </div>
+      <div class="status-row" id="dashStatusRow" style="margin-bottom:0;">
+        <span class="status-pill ok"><span class="dot ok"></span>ปกติ<b id="cntOk">0</b></span>
+        <span class="status-pill warn"><span class="dot warn"></span>เฝ้าระวัง<b id="cntWarn">0</b></span>
+        <span class="status-pill crit"><span class="dot crit"></span>ผิดเกณฑ์<b id="cntCrit">0</b></span>
+        <span class="status-pill off"><span class="dot off"></span>ออฟไลน์<b id="cntOff">0</b></span>
+      </div>
+    </div>
+
+    <div id="roomsGrid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; margin-bottom:16px;"></div>
+
+    <div class="card">
+      <h2 style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+        <span>แนวโน้มย้อนหลัง — <span id="selectedRoomLabel" style="color:var(--orange-deep);">–</span></span>
+        <span class="status-line" style="margin:0;" id="dashHistCount">0 จุดข้อมูล</span>
+      </h2>
+
+      <div class="row" style="margin-bottom:14px; gap:16px;">
+        <div class="row" style="margin-bottom:0; gap:6px;">
+          <label style="min-width:auto; color:var(--orange-deep); font-weight:600;">อุณหภูมิ (°C)</label>
+          <input type="number" id="axisTempMin" placeholder="min" style="max-width:70px;" step="0.1">
+          <span style="color:var(--text-faint);">–</span>
+          <input type="number" id="axisTempMax" placeholder="max" style="max-width:70px;" step="0.1">
+        </div>
+        <div class="row" style="margin-bottom:0; gap:6px;">
+          <label style="min-width:auto; color:var(--text-dim); font-weight:600;">ความชื้น (%)</label>
+          <input type="number" id="axisHumiMin" placeholder="min" style="max-width:70px;" step="0.1">
+          <span style="color:var(--text-faint);">–</span>
+          <input type="number" id="axisHumiMax" placeholder="max" style="max-width:70px;" step="0.1">
+        </div>
+        <button class="btn secondary" id="axisApplyBtn">ใช้ระดับนี้</button>
+        <button class="btn secondary" id="axisAutoBtn">อัตโนมัติ</button>
+      </div>
+
+      <canvas id="dashHistChart" style="max-height:240px;"></canvas>
+      <div class="hint">คลิกที่การ์ดห้องด้านบนเพื่อดูกราฟแนวโน้มของห้องนั้น — ปล่อยช่อง min/max ว่างไว้แล้วกด "ใช้ระดับนี้" เพื่อให้แกนนั้นปรับอัตโนมัติเหมือนเดิม</div>
+    </div>
+  </div>
+
+  <!-- ============== TAB 1: Firestore Explorer ============== -->
+  <div class="tab-panel" id="t-fs">
+    <div class="card">
+      <h2>Firestore Explorer</h2>
+      <div class="row"><label>Project ID</label><input type="text" id="fsProject" value="motoreye-b8829"></div>
+      <div class="row"><label>Document path</label>
+        <input type="text" id="fsPath" value="plants/ABC/rooms/888" placeholder="collection/doc/collection/doc">
+      </div>
+      <div class="row">
+        <button class="btn" id="fsReadBtn">อ่านครั้งเดียว</button>
+        <button class="btn secondary" id="fsListenBtn">▶ ฟัง Real-time</button>
+        <button class="btn secondary" id="fsCopyBtn">คัดลอกผลลัพธ์</button>
+      </div>
+      <div class="status-line" id="fsStatus">ยังไม่ได้อ่าน</div>
+      <pre class="out" id="fsOut">–</pre>
+
+      <h3>เขียนทดสอบ (ต้อง login ก่อน เพราะ rule กำหนด write: if request.auth != null)</h3>
+      <div class="row">
+        <input type="text" id="fsEmail" placeholder="email สำหรับ login (เช่น device@motoreye.local)">
+        <input type="password" id="fsPass" placeholder="password">
+        <button class="btn secondary" id="fsLoginBtn">Login</button>
+        <span class="status-line" id="fsAuthStatus" style="margin:0;">ยังไม่ login</span>
+      </div>
+      <div class="row" style="align-items:flex-start;">
+        <label style="margin-top:8px;">JSON (plain)</label>
+        <textarea id="fsWriteJson">{
+  "temp": 24.1,
+  "humi": 50.0,
+  "sensorId": "sandbox-test",
+  "updatedAt": "2026-09-17T00:00:00.000Z"
+}</textarea>
+      </div>
+      <div class="row">
+        <button class="btn" id="fsWriteBtn">เขียน (set merge:true)</button>
+      </div>
+      <div class="hint">เขียนผ่าน Firebase SDK โดยตรง (ไม่ต้องห่อ doubleValue/stringValue เอง เหมือนตอนยิง REST API ใน Node-RED) — ป้อน JSON ธรรมดาได้เลย</div>
+    </div>
+  </div>
+
+  <!-- ============== TAB 2: REST API Tester ============== -->
+  <div class="tab-panel" id="t-api">
+    <div class="card">
+      <h2>REST API Tester</h2>
+      <div class="row">
+        <select id="apiMethod" style="min-width:100px;">
+          <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option>
+        </select>
+        <input type="text" id="apiUrl" placeholder="https://..." style="flex:3;">
+        <button class="btn" id="apiSendBtn">ส่ง</button>
+      </div>
+      <h3>Headers (บรรทัดละ 1 คู่ key: value)</h3>
+      <textarea id="apiHeaders" style="min-height:60px;">Content-Type: application/json</textarea>
+      <h3>Body (JSON — ใช้กับ POST/PUT/PATCH)</h3>
+      <textarea id="apiBody" style="min-height:80px;">{}</textarea>
+      <h3 style="margin-top:16px;">ผลลัพธ์</h3>
+      <div class="status-line" id="apiStatus">ยังไม่ได้ส่ง</div>
+      <pre class="out" id="apiOut">–</pre>
+      <div class="hint">ถ้าเจอ error แบบ "Failed to fetch" หรือ CORS ส่วนใหญ่เกิดจาก endpoint ปลายทางไม่ได้เปิด CORS header ให้ browser เรียกตรง — ไม่เกี่ยวกับโค้ดฝั่งนี้</div>
+    </div>
+  </div>
+
+  <!-- ============== TAB 3: MQTT Test Client ============== -->
+  <div class="tab-panel" id="t-mqtt">
+    <div class="card">
+      <h2>MQTT Test Client (เชื่อมต่อผ่าน WebSocket)</h2>
+      <div class="row">
+        <label>Broker URL</label>
+        <input type="text" id="mqttUrl" value="wss://test.mosquitto.org:8081/mqtt" style="flex:2;">
+      </div>
+      <div class="row">
+        <input type="text" id="mqttUser" placeholder="username (ถ้ามี)">
+        <input type="password" id="mqttPass" placeholder="password (ถ้ามี)">
+        <button class="btn" id="mqttConnectBtn">เชื่อมต่อ</button>
+        <button class="btn danger" id="mqttDisconnectBtn" disabled>ตัดการเชื่อมต่อ</button>
+      </div>
+      <div class="status-line" id="mqttStatus">ยังไม่เชื่อมต่อ</div>
+
+      <div class="grid2">
+        <div>
+          <h3>Subscribe</h3>
+          <div class="row"><input type="text" id="mqttSubTopic" placeholder="เช่น wardeye/ward14a/#" value="senser-test/#"><button class="btn secondary" id="mqttSubBtn" disabled>Subscribe</button></div>
+          <h3>ข้อความที่ได้รับ</h3>
+          <div class="msg-log" id="mqttLog"></div>
+        </div>
+        <div>
+          <h3>Publish</h3>
+          <div class="row"><input type="text" id="mqttPubTopic" placeholder="topic" value="senser-test/hello"></div>
+          <textarea id="mqttPubPayload" style="min-height:80px;">{"msg":"สวัสดีจาก sandbox"}</textarea>
+          <div class="row"><button class="btn" id="mqttPubBtn" disabled>Publish</button></div>
+        </div>
+      </div>
+      <div class="hint">ค่าเริ่มต้นใช้ public broker test.mosquitto.org ทดสอบทั่วไปได้เลย ไม่ต้องใส่ user/pass — ถ้าจะต่อ HiveMQ Cloud ของ WARDEYE ต้องใช้ URL แบบ wss://&lt;cluster&gt;.s1.eu.hivemq.cloud:8884/mqtt พร้อม username/password จริง</div>
+    </div>
+  </div>
+
+  <!-- ============== TAB 4: JSON <-> Firestore Fields ============== -->
+  <div class="tab-panel" id="t-conv">
+    <div class="grid2">
+      <div class="card">
+        <h2>JSON → Firestore Fields</h2>
+        <div class="row" style="align-items:flex-start;">
+          <textarea id="convInJson" style="min-height:160px;">{
+  "temp": 23.8,
+  "humi": 51.5,
+  "sensorId": "rs485-888",
+  "updatedAt": "2026-09-17T02:58:14.009Z",
+  "online": true
+}</textarea>
+        </div>
+        <div class="row">
+          <label style="min-width:auto;"><input type="checkbox" id="convTsToggle" checked> ตีความ field ที่ชื่อลงท้ายด้วย "At"/"ts"/"time" เป็น timestampValue</label>
+        </div>
+        <button class="btn" id="convToFsBtn">แปลง →</button>
+        <h3>ผลลัพธ์ (ใช้วางใน payload.fields ของ http request)</h3>
+        <pre class="out" id="convFsOut">–</pre>
+      </div>
+      <div class="card">
+        <h2>Firestore Fields → JSON</h2>
+        <div class="row" style="align-items:flex-start;">
+          <textarea id="convInFs" style="min-height:160px;">{
+  "temp": { "doubleValue": 23.8 },
+  "humi": { "doubleValue": 51.5 },
+  "sensorId": { "stringValue": "rs485-888" }
+}</textarea>
+        </div>
+        <button class="btn" id="convToJsonBtn">← แปลง</button>
+        <h3>ผลลัพธ์</h3>
+        <pre class="out" id="convJsonOut">–</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============== TAB 5: Modbus / Timestamp ============== -->
+  <div class="tab-panel" id="t-modbus">
+    <div class="grid2">
+      <div class="card">
+        <h2>Modbus signed16 decoder</h2>
+        <div class="row"><label>High byte</label><input type="number" id="mbHigh" value="0" min="0" max="255"></div>
+        <div class="row"><label>Low byte</label><input type="number" id="mbLow" value="238" min="0" max="255"></div>
+        <div class="row"><label style="min-width:auto;"><input type="checkbox" id="mbDivide" checked> หาร 10 (สำหรับ temp/humi ปกติ — ไม่ใช้กับ PM2.5)</label></div>
+        <button class="btn" id="mbCalcBtn">คำนวณ</button>
+        <h3>ผลลัพธ์</h3>
+        <pre class="out" id="mbOut">–</pre>
+        <div class="hint">สูตร: raw = (high &lt;&lt; 8) | low, ถ้า raw &gt; 32767 ให้ลบ 65536 (แปลงเป็นค่าติดลบ) แล้วหาร 10 ตาม pattern ของ XY-MD02 (ยกเว้น PM2.5 ที่เป็นจำนวนเต็มไม่ต้องหาร)</div>
+      </div>
+      <div class="card">
+        <h2>Timestamp Converter</h2>
+        <div class="row"><label>Epoch (ms)</label><input type="text" id="tsEpoch" placeholder="1758078894097"></div>
+        <div class="row"><button class="btn secondary" id="tsNowBtn">ใช้เวลาปัจจุบัน</button><button class="btn" id="tsFromEpochBtn">แปลงจาก Epoch</button></div>
+        <div class="row"><label>ISO 8601</label><input type="text" id="tsIso" placeholder="2026-09-17T02:58:14.009Z"></div>
+        <div class="row"><button class="btn" id="tsFromIsoBtn">แปลงจาก ISO</button></div>
+        <h3>ผลลัพธ์</h3>
+        <pre class="out" id="tsOut">–</pre>
+      </div>
+    </div>
+  </div>
+
+  <footer>SENSER TEST Sandbox · motoreye-b8829 · เครื่องมือทดสอบส่วนตัว ไม่ควรแชร์ credential ที่กรอกให้ผู้อื่น</footer>
+</div>
+
+<script>
+// ============== Tabs ==============
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+
+function pretty(obj){ return JSON.stringify(obj, null, 2); }
+
+// ============== TAB 1: Firestore ==============
+let fsApp = null, fsDb = null, fsAuth = null, fsUnsub = null;
+
+function ensureFsApp(){
+  const projectId = document.getElementById('fsProject').value.trim();
+  if (!fsApp) {
+    fsApp = firebase.initializeApp({ projectId, apiKey: 'AIzaSyA9duN7uzwd8LHZuhFj5LBcKSx5k06C-a8', authDomain: projectId + '.firebaseapp.com' }, 'sandbox');
+    fsDb = fsApp.firestore();
+    fsAuth = fsApp.auth();
+  }
+  return fsDb;
+}
+
+function pathToRef(db, path){
+  const parts = path.split('/').filter(Boolean);
+  let ref = db.collection(parts[0]);
+  for (let i = 1; i < parts.length; i++) {
+    ref = (i % 2 === 1) ? ref.doc(parts[i]) : ref.collection(parts[i]);
+  }
+  return ref;
+}
+
+function fsSerialize(data){
+  const out = {};
+  Object.keys(data).forEach(k => {
+    const v = data[k];
+    out[k] = (v && typeof v.toDate === 'function') ? v.toDate().toISOString() + ' (timestamp)' : v;
+  });
+  return out;
+}
+
+document.getElementById('fsReadBtn').onclick = async () => {
+  const db = ensureFsApp();
+  const path = document.getElementById('fsPath').value.trim();
+  const statusEl = document.getElementById('fsStatus');
+  const outEl = document.getElementById('fsOut');
+  statusEl.className = 'status-line'; statusEl.textContent = 'กำลังอ่าน…';
+  try {
+    const ref = pathToRef(db, path);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      statusEl.className = 'status-line err'; statusEl.textContent = 'ไม่พบเอกสารที่ path นี้';
+      outEl.textContent = 'null';
+      return;
+    }
+    statusEl.className = 'status-line ok'; statusEl.textContent = 'อ่านสำเร็จ · ' + new Date().toLocaleTimeString('th-TH');
+    outEl.textContent = pretty(fsSerialize(snap.data()));
+  } catch (e) {
+    statusEl.className = 'status-line err'; statusEl.textContent = 'error: ' + e.code + ' — ' + e.message;
+    outEl.textContent = '–';
+  }
+};
+
+let listening = false;
+document.getElementById('fsListenBtn').onclick = () => {
+  const db = ensureFsApp();
+  const path = document.getElementById('fsPath').value.trim();
+  const btn = document.getElementById('fsListenBtn');
+  const statusEl = document.getElementById('fsStatus');
+  const outEl = document.getElementById('fsOut');
+
+  if (listening) {
+    if (fsUnsub) fsUnsub();
+    listening = false; btn.textContent = '▶ ฟัง Real-time';
+    statusEl.className = 'status-line'; statusEl.textContent = 'หยุดฟังแล้ว';
+    return;
+  }
+  try {
+    const ref = pathToRef(db, path);
+    fsUnsub = ref.onSnapshot(
+      (snap) => {
+        statusEl.className = 'status-line ok';
+        statusEl.textContent = 'live · อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH');
+        outEl.textContent = snap.exists ? pretty(fsSerialize(snap.data())) : 'null (ไม่มีเอกสาร)';
+      },
+      (err) => {
+        statusEl.className = 'status-line err'; statusEl.textContent = 'error: ' + err.code;
+      }
+    );
+    listening = true; btn.textContent = '■ หยุดฟัง';
+  } catch (e) {
+    statusEl.className = 'status-line err'; statusEl.textContent = 'error: ' + e.message;
+  }
+};
+
+document.getElementById('fsCopyBtn').onclick = () => {
+  navigator.clipboard?.writeText(document.getElementById('fsOut').textContent);
+};
+
+document.getElementById('fsLoginBtn').onclick = async () => {
+  const db = ensureFsApp();
+  const email = document.getElementById('fsEmail').value.trim();
+  const pass = document.getElementById('fsPass').value;
+  const statusEl = document.getElementById('fsAuthStatus');
+  try {
+    await fsAuth.signInWithEmailAndPassword(email, pass);
+    statusEl.className = 'status-line ok'; statusEl.textContent = 'login แล้ว: ' + email;
+  } catch (e) {
+    statusEl.className = 'status-line err'; statusEl.textContent = 'login ไม่สำเร็จ: ' + e.code;
+  }
+};
+
+document.getElementById('fsWriteBtn').onclick = async () => {
+  const db = ensureFsApp();
+  const path = document.getElementById('fsPath').value.trim();
+  const statusEl = document.getElementById('fsStatus');
+  try {
+    const data = JSON.parse(document.getElementById('fsWriteJson').value);
+    const ref = pathToRef(db, path);
+    await ref.set(data, { merge: true });
+    statusEl.className = 'status-line ok'; statusEl.textContent = 'เขียนสำเร็จ · ' + new Date().toLocaleTimeString('th-TH');
+  } catch (e) {
+    statusEl.className = 'status-line err'; statusEl.textContent = 'เขียนไม่สำเร็จ: ' + (e.code || e.message);
+  }
+};
+
+// ============== TAB 2: REST API ==============
+document.getElementById('apiSendBtn').onclick = async () => {
+  const method = document.getElementById('apiMethod').value;
+  const url = document.getElementById('apiUrl').value.trim();
+  const statusEl = document.getElementById('apiStatus');
+  const outEl = document.getElementById('apiOut');
+  if (!url) { statusEl.className='status-line err'; statusEl.textContent='กรอก URL ก่อน'; return; }
+
+  const headers = {};
+  document.getElementById('apiHeaders').value.split('\n').forEach(line => {
+    const idx = line.indexOf(':');
+    if (idx > -1) headers[line.slice(0, idx).trim()] = line.slice(idx+1).trim();
+  });
+
+  const opts = { method, headers };
+  if (['POST','PUT','PATCH'].includes(method)) {
+    const bodyRaw = document.getElementById('apiBody').value.trim();
+    if (bodyRaw) opts.body = bodyRaw;
+  }
+
+  statusEl.className = 'status-line'; statusEl.textContent = 'กำลังส่ง…';
+  const t0 = performance.now();
+  try {
+    const res = await fetch(url, opts);
+    const ms = (performance.now() - t0).toFixed(0);
+    const text = await res.text();
+    let bodyOut = text;
+    try { bodyOut = pretty(JSON.parse(text)); } catch(_) {}
+    statusEl.className = 'status-line ' + (res.ok ? 'ok' : 'err');
+    statusEl.textContent = res.status + ' ' + res.statusText + ' · ' + ms + ' ms';
+    outEl.textContent = bodyOut || '(response ว่างเปล่า)';
+  } catch (e) {
+    statusEl.className = 'status-line err'; statusEl.textContent = 'error: ' + e.message;
+    outEl.textContent = 'ส่งคำขอไม่สำเร็จ — อาจติด CORS หรือ URL ไม่ถูกต้อง';
+  }
+};
+
+// ============== TAB 3: MQTT ==============
+let mqttClient = null;
+
+function mqttLog(text, isErr){
+  const log = document.getElementById('mqttLog');
+  const div = document.createElement('div');
+  div.className = 'line';
+  const t = new Date().toLocaleTimeString('th-TH');
+  div.innerHTML = '<span class="t">' + t + '</span>' + (isErr ? '⚠ ' : '') + text.replace(/</g,'&lt;');
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+document.getElementById('mqttConnectBtn').onclick = () => {
+  const url = document.getElementById('mqttUrl').value.trim();
+  const user = document.getElementById('mqttUser').value.trim();
+  const pass = document.getElementById('mqttPass').value;
+  const statusEl = document.getElementById('mqttStatus');
+
+  const opts = { clientId: 'senser-sandbox-' + Math.random().toString(16).slice(2) };
+  if (user) opts.username = user;
+  if (pass) opts.password = pass;
+
+  statusEl.className = 'status-line'; statusEl.textContent = 'กำลังเชื่อมต่อ…';
+  try {
+    mqttClient = mqtt.connect(url, opts);
+    mqttClient.on('connect', () => {
+      statusEl.className = 'status-line ok'; statusEl.textContent = 'เชื่อมต่อแล้ว: ' + url;
+      document.getElementById('mqttConnectBtn').disabled = true;
+      document.getElementById('mqttDisconnectBtn').disabled = false;
+      document.getElementById('mqttSubBtn').disabled = false;
+      document.getElementById('mqttPubBtn').disabled = false;
+    });
+    mqttClient.on('message', (topic, payload) => {
+      mqttLog('[' + topic + '] ' + payload.toString());
+    });
+    mqttClient.on('error', (err) => {
+      statusEl.className = 'status-line err'; statusEl.textContent = 'error: ' + err.message;
+    });
+    mqttClient.on('close', () => {
+      statusEl.className = 'status-line'; statusEl.textContent = 'ตัดการเชื่อมต่อแล้ว';
+      document.getElementById('mqttConnectBtn').disabled = false;
+      document.getElementById('mqttDisconnectBtn').disabled = true;
+      document.getElementById('mqttSubBtn').disabled = true;
+      document.getElementById('mqttPubBtn').disabled = true;
+    });
+  } catch (e) {
+    statusEl.className = 'status-line err'; statusEl.textContent = 'error: ' + e.message;
+  }
+};
+
+document.getElementById('mqttDisconnectBtn').onclick = () => { if (mqttClient) mqttClient.end(); };
+
+document.getElementById('mqttSubBtn').onclick = () => {
+  const topic = document.getElementById('mqttSubTopic').value.trim();
+  if (!mqttClient || !topic) return;
+  mqttClient.subscribe(topic, (err) => {
+    if (err) mqttLog('subscribe error: ' + err.message, true);
+    else mqttLog('subscribed: ' + topic);
+  });
+};
+
+document.getElementById('mqttPubBtn').onclick = () => {
+  const topic = document.getElementById('mqttPubTopic').value.trim();
+  const payload = document.getElementById('mqttPubPayload').value;
+  if (!mqttClient || !topic) return;
+  mqttClient.publish(topic, payload, (err) => {
+    if (err) mqttLog('publish error: ' + err.message, true);
+    else mqttLog('published → [' + topic + '] ' + payload);
+  });
+};
+
+// ============== TAB 4: JSON <-> Firestore Fields ==============
+function jsToFirestoreValue(v, key, tsToggle){
+  if (v === null) return { nullValue: null };
+  if (typeof v === 'boolean') return { booleanValue: v };
+  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  if (typeof v === 'string') {
+    const looksLikeTs = /^\d{4}-\d{2}-\d{2}T/.test(v);
+    const nameHints = /(at|ts|time)$/i.test(key || '');
+    if (tsToggle && looksLikeTs && nameHints) return { timestampValue: v };
+    return { stringValue: v };
+  }
+  if (Array.isArray(v)) return { arrayValue: { values: v.map(x => jsToFirestoreValue(x, '', tsToggle)) } };
+  if (typeof v === 'object') {
+    const fields = {};
+    Object.keys(v).forEach(k => fields[k] = jsToFirestoreValue(v[k], k, tsToggle));
+    return { mapValue: { fields } };
+  }
+  return { stringValue: String(v) };
+}
+
+function firestoreValueToJs(fv){
+  if ('doubleValue' in fv) return fv.doubleValue;
+  if ('integerValue' in fv) return Number(fv.integerValue);
+  if ('stringValue' in fv) return fv.stringValue;
+  if ('booleanValue' in fv) return fv.booleanValue;
+  if ('timestampValue' in fv) return fv.timestampValue;
+  if ('nullValue' in fv) return null;
+  if ('arrayValue' in fv) return (fv.arrayValue.values || []).map(firestoreValueToJs);
+  if ('mapValue' in fv) {
+    const out = {};
+    Object.keys(fv.mapValue.fields || {}).forEach(k => out[k] = firestoreValueToJs(fv.mapValue.fields[k]));
+    return out;
+  }
+  return null;
+}
+
+document.getElementById('convToFsBtn').onclick = () => {
+  const outEl = document.getElementById('convFsOut');
+  try {
+    const obj = JSON.parse(document.getElementById('convInJson').value);
+    const tsToggle = document.getElementById('convTsToggle').checked;
+    const fields = {};
+    Object.keys(obj).forEach(k => fields[k] = jsToFirestoreValue(obj[k], k, tsToggle));
+    outEl.textContent = pretty(fields);
+  } catch (e) {
+    outEl.textContent = 'JSON ไม่ถูกต้อง: ' + e.message;
+  }
+};
+
+document.getElementById('convToJsonBtn').onclick = () => {
+  const outEl = document.getElementById('convJsonOut');
+  try {
+    const fields = JSON.parse(document.getElementById('convInFs').value);
+    const out = {};
+    Object.keys(fields).forEach(k => out[k] = firestoreValueToJs(fields[k]));
+    outEl.textContent = pretty(out);
+  } catch (e) {
+    outEl.textContent = 'JSON ไม่ถูกต้อง: ' + e.message;
+  }
+};
+
+// ============== TAB 5: Modbus / Timestamp ==============
+document.getElementById('mbCalcBtn').onclick = () => {
+  const high = parseInt(document.getElementById('mbHigh').value, 10) || 0;
+  const low = parseInt(document.getElementById('mbLow').value, 10) || 0;
+  const divide = document.getElementById('mbDivide').checked;
+  const outEl = document.getElementById('mbOut');
+  let raw = (high << 8) | low;
+  let signed = raw > 32767 ? raw - 65536 : raw;
+  const final = divide ? (signed / 10) : signed;
+  outEl.textContent =
+`raw (unsigned)  = ${raw}
+signed (int16)  = ${signed}
+${divide ? 'หาร 10           = ' + final : 'ไม่หาร (ค่าเต็ม) = ' + final}`;
+};
+
+document.getElementById('tsNowBtn').onclick = () => {
+  document.getElementById('tsEpoch').value = Date.now();
+};
+
+document.getElementById('tsFromEpochBtn').onclick = () => {
+  const outEl = document.getElementById('tsOut');
+  const val = document.getElementById('tsEpoch').value.trim();
+  try {
+    const d = new Date(Number(val));
+    if (isNaN(d.getTime())) throw new Error('epoch ไม่ถูกต้อง');
+    outEl.textContent =
+`ISO 8601        = ${d.toISOString()}
+Local (เครื่องนี้) = ${d.toString()}
+เวลาไทย          = ${d.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}
+Unix (วินาที)     = ${Math.floor(d.getTime()/1000)}`;
+  } catch (e) { outEl.textContent = 'error: ' + e.message; }
+};
+
+document.getElementById('tsFromIsoBtn').onclick = () => {
+  const outEl = document.getElementById('tsOut');
+  const val = document.getElementById('tsIso').value.trim();
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) throw new Error('ISO string ไม่ถูกต้อง');
+    outEl.textContent =
+`Epoch (ms)      = ${d.getTime()}
+Unix (วินาที)     = ${Math.floor(d.getTime()/1000)}
+เวลาไทย          = ${d.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}`;
+  } catch (e) { outEl.textContent = 'error: ' + e.message; }
+};
+
+// ============== TAB 0: Dashboard (หน้าแสดงผล) — multi-room grid ==============
+const DASH_TEMP_WARN=30, DASH_TEMP_CRIT=35, DASH_HUMI_WARN=55, DASH_HUMI_CRIT=65, DASH_HUMI_HIGH_MIN=60, DASH_STALE_SEC=900;
+const WATCH_KEY = 'senserWatchList';
+
+function loadWatchList(){
+  try {
+    const raw = localStorage.getItem(WATCH_KEY);
+    if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr) && arr.length) return arr; }
+  } catch(_) {}
+  return [{ company:'ABC', room:'888' }];
+}
+function saveWatchList(){
+  try { localStorage.setItem(WATCH_KEY, JSON.stringify(Object.keys(rooms).map(k => rooms[k].meta))); } catch(_) {}
+}
+
+const rooms = {}; // key "company/room" -> { meta, el, status, lastUpdated, unsubLive, unsubSpark, sparkChart }
+let selectedKey = null;
+let dashHistUnsub = null, dashHistChart = null;
+
+function dashFmtAgo(secs){
+  if (secs < 60) return secs + ' วิ.ก่อน';
+  if (secs < 3600) return Math.floor(secs/60) + ' นาที.ก่อน';
+  if (secs < 86400) return Math.floor(secs/3600) + ' ชม.ก่อน';
+  return Math.floor(secs/86400) + ' วัน.ก่อน';
+}
+function dashClassify(data, secsAgo){
+  if (secsAgo == null || secsAgo > DASH_STALE_SEC) return 'off';
+  const t = data.temp, h = data.humi, hh = data.humiHighMinutes;
+  if (t >= DASH_TEMP_CRIT || h >= DASH_HUMI_CRIT || (typeof hh === 'number' && hh >= DASH_HUMI_HIGH_MIN)) return 'crit';
+  if (t >= DASH_TEMP_WARN || h >= DASH_HUMI_WARN) return 'warn';
+  return 'ok';
+}
+
+function updateCounts(){
+  const counts = { ok:0, warn:0, crit:0, off:0 };
+  Object.values(rooms).forEach(r => counts[r.status || 'off']++);
+  document.getElementById('cntOk').textContent = counts.ok;
+  document.getElementById('cntWarn').textContent = counts.warn;
+  document.getElementById('cntCrit').textContent = counts.crit;
+  document.getElementById('cntOff').textContent = counts.off;
+}
+
+function makeCardEl(key, meta){
+  const el = document.createElement('div');
+  el.className = 'room-card';
+  el.innerHTML = `
+    <button class="room-remove" title="ลบห้องนี้">✕</button>
+    <div class="room-top">
+      <div class="room-id"><span class="rid">${meta.room}</span><span class="dot" style="width:7px;height:7px;border-radius:50%;background:var(--text-faint);"></span></div>
+      <div class="room-ago">–</div>
+    </div>
+    <div class="rstats">
+      <div><div class="rstat-value rtemp">--<span class="unit">°C</span></div><div class="rstat-label">อุณหภูมิ</div></div>
+      <div><div class="rstat-value rhumi">--<span class="unit">%</span></div><div class="rstat-label">ความชื้น</div></div>
+      <div class="rpmBlock" style="display:none;"><div class="rstat-value rpm">--<span class="unit">µg/m³</span></div><div class="rstat-label">PM2.5</div></div>
+    </div>
+    <div class="room-spark"><canvas></canvas></div>
+    <div class="room-bottom">
+      <div class="room-signal">กำลังโหลด…</div>
+      <div class="room-sensor">–</div>
+    </div>
+  `;
+  el.querySelector('.room-remove').onclick = (e) => { e.stopPropagation(); removeRoom(key); };
+  el.onclick = () => selectRoom(key);
+  return el;
+}
+
+function renderCard(key, data){
+  const r = rooms[key]; if (!r) return;
+  const secsAgo = r.lastUpdated ? Math.floor((Date.now() - r.lastUpdated.getTime())/1000) : null;
+  const status = dashClassify(data, secsAgo);
+  r.status = status;
+  const el = r.el;
+
+  el.className = 'room-card' + (status==='crit'?' crit':status==='warn'?' warn':'') + (key===selectedKey?' selected':'');
+  el.querySelector('.dot').style.background = status==='crit'?'var(--red)':status==='warn'?'var(--amber)':status==='off'?'var(--text-faint)':'var(--green)';
+
+  const t = data.temp, h = data.humi;
+  const tempEl = el.querySelector('.rtemp');
+  tempEl.innerHTML = (typeof t==='number'?t.toFixed(1):'--') + '<span class="unit">°C</span>';
+  tempEl.className = 'rstat-value rtemp' + (status==='off'?' na':t>=DASH_TEMP_CRIT?' crit':t>=DASH_TEMP_WARN?' warn':'');
+
+  const humiEl = el.querySelector('.rhumi');
+  humiEl.innerHTML = (typeof h==='number'?h.toFixed(1):'--') + '<span class="unit">%</span>';
+  humiEl.className = 'rstat-value rhumi' + (status==='off'?' na':h>=DASH_HUMI_CRIT?' crit':h>=DASH_HUMI_WARN?' warn':'');
+
+  const pmBlock = el.querySelector('.rpmBlock');
+  if (typeof data.pm25 === 'number') {
+    pmBlock.style.display = '';
+    el.querySelector('.rpm').innerHTML = data.pm25.toFixed(1) + '<span class="unit">µg/m³</span>';
+  } else pmBlock.style.display = 'none';
+
+  el.querySelector('.room-sensor').textContent = data.sensorId || '–';
+
+  const sig = el.querySelector('.room-signal');
+  if (status === 'off') { sig.textContent = 'ไม่มีสัญญาณจากเซ็นเซอร์'; sig.className = 'room-signal'; }
+  else if (typeof data.humiHighMinutes === 'number' && data.humiHighMinutes >= DASH_HUMI_HIGH_MIN) {
+    sig.textContent = 'ความชื้นเกิน ' + DASH_HUMI_WARN + '% ต่อเนื่อง ' + (data.humiHighMinutes/60).toFixed(1) + ' ชม.';
+    sig.className = 'room-signal crit';
+  } else { sig.textContent = 'ออนไลน์'; sig.className = 'room-signal'; }
+
+  updateCounts();
+}
+
+function tickAllAgo(){
+  Object.entries(rooms).forEach(([key, r]) => {
+    const agoEl = r.el.querySelector('.room-ago');
+    if (!r.lastUpdated) { agoEl.textContent = '–'; return; }
+    agoEl.textContent = dashFmtAgo(Math.max(0, Math.floor((Date.now() - r.lastUpdated.getTime())/1000)));
+  });
+}
+setInterval(tickAllAgo, 1000);
+
+function addRoom(company, room){
+  const key = company + '/' + room;
+  if (rooms[key]) { selectRoom(key); return; }
+  const meta = { company, room };
+  const el = makeCardEl(key, meta);
+  document.getElementById('roomsGrid').appendChild(el);
+
+  const sparkCtx = el.querySelector('.room-spark canvas').getContext('2d');
+  const sparkChart = new Chart(sparkCtx, {
+    type:'line',
+    data:{ labels:[], datasets:[
+      { data:[], borderColor:'#ff7a1f', borderWidth:1.4, pointRadius:0, tension:.35, yAxisID:'y' },
+      { data:[], borderColor:'#8b8477', borderDash:[3,3], borderWidth:1, pointRadius:0, tension:.35, yAxisID:'y1' },
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{enabled:false} },
+      scales:{ x:{display:false}, y:{display:false}, y1:{display:false} } }
+  });
+
+  const db = ensureFsApp();
+  const unsubLive = db.collection('plants').doc(company).collection('rooms').doc(room).onSnapshot(
+    (snap) => {
+      if (!snap.exists) { el.querySelector('.room-signal').textContent = 'ยังไม่พบเอกสาร'; return; }
+      const data = snap.data();
+      rooms[key].lastUpdated = data.updatedAt ? data.updatedAt.toDate() : null;
+      renderCard(key, data);
+    },
+    (err) => { el.querySelector('.room-signal').textContent = 'error: ' + err.code; }
+  );
+  const unsubSpark = db.collection('plants').doc(company).collection('rooms').doc(room)
+    .collection('readings').orderBy('ts','desc').limit(20).onSnapshot((snap) => {
+      const rows = []; snap.forEach(d => rows.push(d.data())); rows.reverse();
+      sparkChart.data.labels = rows.map((_,i) => i);
+      sparkChart.data.datasets[0].data = rows.map(r => typeof r.temp==='number'?r.temp:null);
+      sparkChart.data.datasets[1].data = rows.map(r => typeof r.humi==='number'?r.humi:null);
+      sparkChart.update();
+    });
+
+  rooms[key] = { meta, el, status:'off', lastUpdated:null, unsubLive, unsubSpark, sparkChart };
+  saveWatchList();
+  if (!selectedKey) selectRoom(key);
+}
+
+function removeRoom(key){
+  const r = rooms[key]; if (!r) return;
+  if (r.unsubLive) r.unsubLive();
+  if (r.unsubSpark) r.unsubSpark();
+  if (r.sparkChart) r.sparkChart.destroy();
+  r.el.remove();
+  delete rooms[key];
+  saveWatchList();
+  updateCounts();
+  if (selectedKey === key) {
+    const remaining = Object.keys(rooms);
+    selectedKey = null;
+    if (remaining.length) selectRoom(remaining[0]);
+    else { document.getElementById('selectedRoomLabel').textContent = '–'; if (dashHistChart){ dashHistChart.data.labels=[]; dashHistChart.data.datasets.forEach(d=>d.data=[]); dashHistChart.update(); } }
+  }
+}
+
+function dashInitHistChart(){
+  const ctx = document.getElementById('dashHistChart').getContext('2d');
+  dashHistChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels:[], datasets:[
+      { label:'อุณหภูมิ (°C)', data:[], borderColor:'#ff7a1f', backgroundColor:'rgba(255,122,31,0.08)', yAxisID:'y', tension:0.3, pointRadius:0, borderWidth:2, fill:true },
+      { label:'ความชื้น (%)', data:[], borderColor:'#8b8477', backgroundColor:'transparent', yAxisID:'y1', tension:0.3, pointRadius:0, borderWidth:2, borderDash:[4,3] },
+    ]},
+    options:{ responsive:true, interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ labels:{ color:'#8b8477', font:{ family:'IBM Plex Sans Thai', size:12 } } } },
+      scales:{
+        x:{ ticks:{ color:'#c2bcae', maxTicksLimit:8 }, grid:{ color:'#eae6dd' } },
+        y:{ position:'left', ticks:{ color:'#d95a05' }, grid:{ color:'#eae6dd' } },
+        y1:{ position:'right', ticks:{ color:'#8b8477' }, grid:{ display:false } },
+      } }
+  });
+  applyAxisRange(); // ใช้ค่าที่บันทึกไว้ก่อนหน้า (ถ้ามี)
+}
+dashInitHistChart();
+
+// ============== ปรับระดับแกน Y (อุณหภูมิ/ความชื้น) ==============
+const AXIS_KEY = 'senserAxisRange';
+
+function loadAxisRange(){
+  try {
+    const raw = localStorage.getItem(AXIS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(_) {}
+  return { tempMin:null, tempMax:null, humiMin:null, humiMax:null };
+}
+function saveAxisRange(r){
+  try { localStorage.setItem(AXIS_KEY, JSON.stringify(r)); } catch(_) {}
+}
+
+function numOrUndefined(v){
+  const n = parseFloat(v);
+  return isNaN(n) ? undefined : n;
+}
+
+function applyAxisRange(){
+  const r = loadAxisRange();
+  document.getElementById('axisTempMin').value = r.tempMin ?? '';
+  document.getElementById('axisTempMax').value = r.tempMax ?? '';
+  document.getElementById('axisHumiMin').value = r.humiMin ?? '';
+  document.getElementById('axisHumiMax').value = r.humiMax ?? '';
+
+  if (!dashHistChart) return;
+  dashHistChart.options.scales.y.min = numOrUndefined(r.tempMin);
+  dashHistChart.options.scales.y.max = numOrUndefined(r.tempMax);
+  dashHistChart.options.scales.y1.min = numOrUndefined(r.humiMin);
+  dashHistChart.options.scales.y1.max = numOrUndefined(r.humiMax);
+  dashHistChart.update();
+}
+
+document.getElementById('axisApplyBtn').onclick = () => {
+  const r = {
+    tempMin: document.getElementById('axisTempMin').value.trim() || null,
+    tempMax: document.getElementById('axisTempMax').value.trim() || null,
+    humiMin: document.getElementById('axisHumiMin').value.trim() || null,
+    humiMax: document.getElementById('axisHumiMax').value.trim() || null,
+  };
+  saveAxisRange(r);
+  applyAxisRange();
+};
+
+document.getElementById('axisAutoBtn').onclick = () => {
+  saveAxisRange({ tempMin:null, tempMax:null, humiMin:null, humiMax:null });
+  applyAxisRange();
+};
+
+document.getElementById('dashAddBtn').onclick = () => {
+  const company = document.getElementById('dashAddCompany').value.trim();
+  const room = document.getElementById('dashAddRoom').value.trim();
+  if (!company || !room) return;
+  addRoom(company, room);
+  document.getElementById('dashAddRoom').value = '';
+};
+
+// โหลดรายการห้องที่เคยเพิ่มไว้ (หรือค่าเริ่มต้น ABC/888)
+try {
+  loadWatchList().forEach(m => addRoom(m.company, m.room));
+} catch (e) {
+  console.error('โหลดรายการห้องไม่สำเร็จ:', e);
+}
+
+function selectRoom(key){
+  const r = rooms[key]; if (!r) return;
+  selectedKey = key;
+  Object.entries(rooms).forEach(([k, rm]) => rm.el.classList.toggle('selected', k === key));
+  document.getElementById('selectedRoomLabel').textContent = key;
+
+  if (dashHistUnsub) dashHistUnsub();
+  const db = ensureFsApp();
+  dashHistUnsub = db.collection('plants').doc(r.meta.company).collection('rooms').doc(r.meta.room)
+    .collection('readings').orderBy('ts','desc').limit(60).onSnapshot(
+      (snap) => {
+        const rows = []; snap.forEach(d => rows.push(d.data())); rows.reverse();
+        dashHistChart.data.labels = rows.map(row => row.ts ? row.ts.toDate().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}) : '');
+        dashHistChart.data.datasets[0].data = rows.map(row => typeof row.temp==='number'?row.temp:null);
+        dashHistChart.data.datasets[1].data = rows.map(row => typeof row.humi==='number'?row.humi:null);
+        dashHistChart.update();
+        document.getElementById('dashHistCount').textContent = rows.length + ' จุดข้อมูล';
+      },
+      () => { document.getElementById('dashHistCount').textContent = 'อ่านประวัติไม่ได้'; }
+    );
+}
+</script>
+</body>
+</html>
